@@ -109,13 +109,7 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
     // Create CSV writer
     const csvWriter = createCsvWriter({
       path: outputFilePath,
-      header: [
-        "NumericPart",
-        "DepositDate",
-        "PaymentAmount",
-        "Suffix",
-        "CustomerName",
-      ],
+      header: ["NumericPart", "DepositDate", "PaymentAmount", "Suffix"],
     });
 
     // Write the grouped data for the current prefix
