@@ -15,6 +15,10 @@ interface PaymentDetail {
   DonationCategory: string;
 }
 
+interface SummaryData {
+  DepositDate: string;
+  TotalPaymentAmount: number;
+}
 // Function to validate account number based on the fixed pattern: 3 chars, 5 digits, and letters
 function isValidAccountNumber(accountNumber: string): boolean {
   if (accountNumber.length <= 8) return false;
@@ -101,6 +105,39 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
     });
     return acc;
   }, {} as { [key: string]: any[] });
+
+  //Generate summary page by date
+
+  const summary = paymentDetails.reduce((acc, detail) => {
+    if (!acc.find((s) => s.DepositDate == detail.DepositDate)) {
+      acc.push({
+        DepositDate: detail.DepositDate,
+        TotalPaymentAmount: 0,
+      });
+    }
+
+    const data = acc.find((s) => s.DepositDate == detail.DepositDate);
+    if (data) {
+      data.TotalPaymentAmount += Number(detail.PaymentAmount);
+    }
+    return acc;
+  }, [] as SummaryData[]);
+
+  const summaryOutputFile = path.join(outputFolderPath, `summary.csv`);
+  const csvSummryWriter = createCsvWriter({
+    path: summaryOutputFile,
+    header: ["DepositDate", "TotalPaymentAmount"],
+  });
+
+  console.log(summary);
+  csvSummryWriter
+    .writeRecords(summary)
+    .then(() => {
+      console.log(`Generated summary at ${summaryOutputFile}`);
+    })
+    .catch((err: Error) => {
+      console.error("Error writing summary file", err);
+    });
 
   // Generate a CSV file for each prefix
   Object.keys(groupedData).forEach((city) => {
