@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { createObjectCsvWriter as createCsvWriter } from "csv-writer";
+import moment from "moment";
 
 // Interface for PaymentDetail
 interface PaymentDetail {
@@ -9,23 +10,23 @@ interface PaymentDetail {
   CustomerName: string;
   ReferenceNumber: string;
   PaymentAmount: string;
-  Prefix: string;
-  NumericPart: string;
-  Suffix: string;
+  City: string;
+  DonationNumber: string;
+  DonationCategory: string;
 }
 
 // Function to validate account number based on the fixed pattern: 3 chars, 5 digits, and letters
 function isValidAccountNumber(accountNumber: string): boolean {
   if (accountNumber.length <= 8) return false;
 
-  const prefix = accountNumber.substring(0, 3); // First 3 charss
-  const numericPart = accountNumber.substring(3, 8); // Next 5 chars are digits
-  const suffix = accountNumber.substring(8); // Rest is suffix (letters)
+  const city = accountNumber.substring(0, 3); // First 3 charss
+  const donationNumber = accountNumber.substring(3, 8); // Next 5 chars are digits
+  const donationCategory = accountNumber.substring(8); // Rest is suffix (letters)
 
   return (
-    /^[a-zA-Z]+$/.test(prefix) &&
-    /^[0-9]+$/.test(numericPart) &&
-    /^[a-zA-Z]+$/.test(suffix)
+    /^[a-zA-Z]+$/.test(city) &&
+    /^[0-9]+$/.test(donationNumber) &&
+    /^[a-zA-Z]+$/.test(donationCategory)
   );
 }
 
@@ -54,7 +55,10 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
 
       // Extract the deposit date from the header line
       if (trimmedLine.includes("PAYMENT DATE")) {
-        depositDate = trimmedLine.split(":")[2].trim();
+        depositDate = moment(
+          trimmedLine.split(":")[2].trim(),
+          "YY/MM/DD"
+        ).format("YYYY-MM-DD");
       } else {
         // Process account number if valid
         const accountNumber = trimmedLine.substring(9, 27).trim();
@@ -63,9 +67,9 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
           const referenceNumber = trimmedLine.substring(52, 58).trim();
           const paymentAmount = trimmedLine.substring(64).trim();
 
-          const prefix = accountNumber.substring(0, 3);
-          const numericPart = accountNumber.substring(3, 8);
-          const suffix = accountNumber.substring(8);
+          const city = accountNumber.substring(0, 3);
+          const donationNumber = accountNumber.substring(3, 8);
+          const donationCategory = accountNumber.substring(8);
 
           // Create PaymentDetail object and add to the list
           paymentDetails.push({
@@ -74,9 +78,9 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
             CustomerName: customerName,
             ReferenceNumber: referenceNumber,
             PaymentAmount: paymentAmount,
-            Prefix: prefix,
-            NumericPart: numericPart,
-            Suffix: suffix,
+            City: city,
+            DonationNumber: donationNumber,
+            DonationCategory: donationCategory,
           });
         }
       }
@@ -85,40 +89,39 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
 
   // Group the data by Prefix
   const groupedData = paymentDetails.reduce((acc, detail) => {
-    if (!acc[detail.Prefix]) {
-      acc[detail.Prefix] = [];
+    if (!acc[detail.City]) {
+      acc[detail.City] = [];
     }
-    acc[detail.Prefix].push({
-      NumericPart: detail.NumericPart,
-      // Prefix: detail.Prefix,
+    acc[detail.City].push({
+      DonationNumber: detail.DonationNumber,
       DepositDate: detail.DepositDate.replace(/\//g, "-"),
       PaymentAmount: detail.PaymentAmount,
-      Suffix: detail.Suffix,
+      DonationCategory: detail.DonationCategory,
       CustomerName: detail.CustomerName,
     });
     return acc;
   }, {} as { [key: string]: any[] });
 
   // Generate a CSV file for each prefix
-  Object.keys(groupedData).forEach((prefix) => {
-    const outputFilePath = path.join(
-      outputFolderPath,
-      `${prefix}_donations.csv`
-    );
+  Object.keys(groupedData).forEach((city) => {
+    const outputFilePath = path.join(outputFolderPath, `${city}_donations.csv`);
 
     // Create CSV writer
     const csvWriter = createCsvWriter({
       path: outputFilePath,
-      header: ["NumericPart", "DepositDate", "PaymentAmount", "Suffix"],
+      header: [
+        "DonationNumber",
+        "DepositDate",
+        "PaymentAmount",
+        "DonationCategory",
+      ],
     });
 
-    // Write the grouped data for the current prefix
+    // Write the grouped data for the current city
     csvWriter
-      .writeRecords(groupedData[prefix])
+      .writeRecords(groupedData[city])
       .then(() => {
-        console.log(
-          `Generated file for prefix '${prefix}' at ${outputFilePath}`
-        );
+        console.log(`Generated file for city '${city}' at ${outputFilePath}`);
       })
       .catch((err: Error) => {
         console.error("Error writing CSV file:", err);
@@ -129,8 +132,8 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
 }
 
 // Set folder paths
-const inputFolderPath = "./reports"; // Change to your folder path
-const outputFolderPath = "./output"; // Change to your desired output folder path
+const inputFolderPath = "./reports";
+const outputFolderPath = "./output";
 
 // Create the output folder if it doesn't exist
 if (!fs.existsSync(outputFolderPath)) {
