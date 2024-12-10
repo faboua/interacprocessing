@@ -5,7 +5,7 @@ import moment from "moment";
 
 // Interface for PaymentDetail
 interface PaymentDetail {
-  DepositDate: string;
+  PaymentNumber: string;
   AccountNumber: string;
   CustomerName: string;
   ReferenceNumber: string;
@@ -16,7 +16,7 @@ interface PaymentDetail {
 }
 
 interface SummaryData {
-  DepositDate: string;
+  PaymentNumber: string;
   TotalPaymentAmount: number;
 }
 // Function to validate account number based on the fixed pattern: 3 chars, 5 digits, and letters
@@ -52,17 +52,14 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
   inputFiles.forEach((filePath) => {
     const lines = fs.readFileSync(filePath, "utf-8").split("\n");
 
-    let depositDate = "";
+    let paymentNumber = "";
 
     lines.forEach((line) => {
       const trimmedLine = line.trim();
 
       // Extract the deposit date from the header line
       if (trimmedLine.includes("PAYMENT DATE")) {
-        depositDate = moment(
-          trimmedLine.split(":")[2].trim(),
-          "YY/MM/DD"
-        ).format("YYYY-MM-DD");
+        paymentNumber =  trimmedLine.substring(15, 30).trim();
       } else {
         // Process account number if valid
         const accountNumber = trimmedLine.substring(9, 27).trim();
@@ -77,7 +74,7 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
 
           // Create PaymentDetail object and add to the list
           paymentDetails.push({
-            DepositDate: depositDate,
+            PaymentNumber: paymentNumber,
             AccountNumber: accountNumber,
             CustomerName: customerName,
             ReferenceNumber: referenceNumber,
@@ -98,7 +95,7 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
     }
     acc[detail.City].push({
       DonationNumber: detail.DonationNumber,
-      DepositDate: detail.DepositDate.replace(/\//g, "-"),
+      PaymentNumber: detail.PaymentNumber.replace(/\//g, "-"),
       PaymentAmount: detail.PaymentAmount,
       DonationCategory: detail.DonationCategory,
       CustomerName: detail.CustomerName,
@@ -109,29 +106,30 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
   //Generate summary page by date
 
   const summary = paymentDetails.reduce((acc, detail) => {
-    if (!acc.find((s) => s.DepositDate == detail.DepositDate)) {
+    if (!acc.find((s) => s.PaymentNumber == detail.PaymentNumber)) {
       acc.push({
-        DepositDate: detail.DepositDate,
+        PaymentNumber: detail.PaymentNumber,
         TotalPaymentAmount: 0,
       });
     }
 
-    const data = acc.find((s) => s.DepositDate == detail.DepositDate);
+    const data = acc.find((s) => s.PaymentNumber == detail.PaymentNumber);
     if (data) {
       data.TotalPaymentAmount += Number(detail.PaymentAmount);
     }
     return acc;
   }, [] as SummaryData[]);
 
+  let orderSummary = summary.sort((a,b) => a.PaymentNumber.localeCompare(b.PaymentNumber));
   const summaryOutputFile = path.join(outputFolderPath, `summary.csv`);
   const csvSummryWriter = createCsvWriter({
     path: summaryOutputFile,
-    header: ["DepositDate", "TotalPaymentAmount"],
+    header: ["PaymentNumber", "TotalPaymentAmount"],
   });
 
-  console.log(summary);
+  console.log(orderSummary);
   csvSummryWriter
-    .writeRecords(summary)
+    .writeRecords(orderSummary)
     .then(() => {
       console.log(`Generated summary at ${summaryOutputFile}`);
     })
@@ -148,7 +146,7 @@ function processFiles(inputFolderPath: string, outputFolderPath: string): void {
       path: outputFilePath,
       header: [
         "DonationNumber",
-        "DepositDate",
+        "PaymentNumber",
         "PaymentAmount",
         "DonationCategory",
       ],
