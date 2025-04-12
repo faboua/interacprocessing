@@ -15,6 +15,7 @@ interface PaymentDetail {
   City: string;
   DonationNumber: string;
   DonationCategory: string;
+  Description:string;
 }
 
 interface SummaryData {
@@ -78,7 +79,7 @@ const regex = new RegExp("/", 'g');
 //Extract payment number with date
 function extractTransactionData() : Map<string,string> {
 
-  const transactionsFiles = readFilesFromFolder(transactionFolderPath,'.csv');
+  const transactionsFiles = readFilesFromFolder(transactionFolderPath,'.CSV');
   let transactions:Transaction[] = [];
   transactionsFiles.forEach((filename) => {
      const trans = readTransactionFile(filename);
@@ -99,6 +100,16 @@ function extractTransactionData() : Map<string,string> {
   return new Map(data.filter(d => d != undefined).map(obj => [obj.PaymentNumber, obj.Date]));
 }
 
+function getDescription(city:string):string{
+  switch(city){
+    case 'QBC': return 'Québec';
+    case 'VIC': return 'Victoriaville';
+    case 'SHK': return 'Sherbrooke';
+    case 'TOR': return 'Toronto';
+    case 'EDM': return 'Edmonton';
+    default: return '';
+  }
+}
 // Function to process the files and generate grouped CSVs
 function processFiles(inputFolderPath: string, outputFolderPath: string,transactionFolderPath:string): void {
   // Get all files in the folder
@@ -143,6 +154,7 @@ function processFiles(inputFolderPath: string, outputFolderPath: string,transact
             City: city,
             DonationNumber: donationNumber,
             DonationCategory: donationCategory,
+            Description:getDescription(city),
           });
         } else if(moment(trimmedLine.substring(0,8),"YY/MM/DD").isValid()) {
 
@@ -167,7 +179,8 @@ function processFiles(inputFolderPath: string, outputFolderPath: string,transact
       PaymentAmount: detail.PaymentAmount,
       DonationCategory: detail.DonationCategory,
       CustomerName: detail.CustomerName,
-      TransactionDate:detail.TransactionDate
+      TransactionDate:detail.TransactionDate,
+      Description:detail.Description,
     });
     return acc;
   }, {} as { [key: string]: any[] });
@@ -218,6 +231,7 @@ function processFiles(inputFolderPath: string, outputFolderPath: string,transact
         "TransactionDate",
         "PaymentAmount",
         "DonationCategory",
+        "Description",
       ],
     });
 
